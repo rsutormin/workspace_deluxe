@@ -36,6 +36,12 @@ public class KBaseIdentifierFactory {
 	}
 	
 	public static WorkspaceIdentifier processWorkspaceIdentifier(
+			final us.kbase.workspace.api.v1.workspace.WorkspaceIdentity wsi) {
+		return processWorkspaceIdentifier(new WorkspaceIdentity()
+				.withId(wsi.getId()).withWorkspace(wsi.getWorkspace()));
+	}
+	
+	public static WorkspaceIdentifier processWorkspaceIdentifier(
 			final String workspace, final Long id) {
 		xorNameId(workspace, id, "workspace");
 		if (id != null) {

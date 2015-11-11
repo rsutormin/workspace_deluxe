@@ -33,9 +33,11 @@ import us.kbase.typedobj.exceptions.TypedObjectSchemaException;
 import us.kbase.typedobj.exceptions.TypedObjectValidationException;
 import us.kbase.typedobj.idref.IdReferenceHandlerSetFactory;
 import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.ExternalDataUnit;
 import us.kbase.workspace.GrantModuleOwnershipParams;
 import us.kbase.workspace.ListWorkspaceInfoParams;
 import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.RemoveModuleOwnershipParams;
 import us.kbase.workspace.SaveObjectsParams;
 import us.kbase.workspace.SetGlobalPermissionsParams;
@@ -277,5 +279,194 @@ public class WorkspaceServerMethods {
 				longToBoolean(params.getExcludeGlobal()),
 				longToBoolean(params.getShowDeleted()),
 				longToBoolean(params.getShowOnlyDeleted())));
+	}
+
+	/* would do this more gracefully in actual code. Probably make an interface
+	 * for each of the api types; the methods here take the interface so each
+	 * API would need to wrap its type in a class that implements the interface.
+	 * For this POC code just doing the dirty.
+	 * 
+	 * Alternatively, just make an adapter class for each api that translates
+	 * the API classes for each function and don't have these methods
+	 * know about any of the api classes as they do now.
+	 * 
+	 * Also, the reason for this class is so the administration class
+	 * can call the contained methods. Just make the administration class
+	 * use the most recent API.
+	 */
+	public void grantModuleOwnership(
+			us.kbase.workspace.api.v1.workspace.GrantModuleOwnershipParams params,
+			WorkspaceUser user, boolean asAdmin)
+			throws TypeStorageException, NoSuchPrivilegeException {
+		grantModuleOwnership(new GrantModuleOwnershipParams()
+				.withMod(params.getMod())
+				.withNewOwner(params.getNewOwner())
+				.withWithGrantOption(params.getWithGrantOption()),
+				user, asAdmin);
+		
+	}
+	
+	public void removeModuleOwnership(
+			us.kbase.workspace.api.v1.workspace.RemoveModuleOwnershipParams params,
+			WorkspaceUser user, boolean asAdmin)
+			throws NoSuchPrivilegeException, TypeStorageException {
+		removeModuleOwnership(new RemoveModuleOwnershipParams()
+			.withMod(params.getMod())
+			.withOldOwner(params.getOldOwner()),
+			user, asAdmin);
+		
+	}
+
+	public Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>> createWorkspace(
+			us.kbase.workspace.api.v1.workspace.CreateWorkspaceParams params,
+			WorkspaceUser user)
+			throws PreExistingWorkspaceException,
+			WorkspaceCommunicationException, CorruptWorkspaceDBException {
+		return createWorkspace(new CreateWorkspaceParams()
+				.withDescription(params.getDescription())
+				.withGlobalread(params.getGlobalread())
+				.withMeta(params.getMeta())
+				.withWorkspace(params.getWorkspace()),
+				user);
+	}
+
+	public void setPermissions(
+			us.kbase.workspace.api.v1.workspace.SetPermissionsParams params,
+			WorkspaceUser user)
+			throws CorruptWorkspaceDBException, NoSuchWorkspaceException,
+			WorkspaceCommunicationException, WorkspaceAuthorizationException,
+			IOException, AuthException {
+		setPermissions(new SetPermissionsParams()
+				.withId(params.getId())
+				.withNewPermission(params.getNewPermission())
+				.withUsers(params.getUsers())
+				.withWorkspace(params.getWorkspace()),
+				user);
+		
+	}
+
+	public void setGlobalPermission(
+			us.kbase.workspace.api.v1.workspace.SetGlobalPermissionsParams params,
+			WorkspaceUser user)
+			throws CorruptWorkspaceDBException, NoSuchWorkspaceException,
+			WorkspaceCommunicationException, WorkspaceAuthorizationException {
+		setGlobalPermission(new SetGlobalPermissionsParams()
+			.withId(params.getId())
+			.withNewPermission(params.getNewPermission())
+			.withWorkspace(params.getWorkspace()),
+			user);
+	}
+
+	public us.kbase.workspace.api.v1.workspace.WorkspacePermissions getPermissions(
+			us.kbase.workspace.api.v1.workspace.GetPermissionsMassParams mass, WorkspaceUser user)
+			throws NoSuchWorkspaceException, WorkspaceCommunicationException,
+			CorruptWorkspaceDBException {
+		final List<WorkspaceIdentity> wsis = new LinkedList<WorkspaceIdentity>();
+		for (final us.kbase.workspace.api.v1.workspace.WorkspaceIdentity w:
+				mass.getWorkspaces()) {
+			wsis.add(new WorkspaceIdentity()
+					.withId(w.getId())
+					.withWorkspace(w.getWorkspace()));
+		}
+		final WorkspacePermissions p = getPermissions(wsis, user);
+		return new us.kbase.workspace.api.v1.workspace.WorkspacePermissions()
+				.withPerms(p.getPerms());
+	}
+
+	public Map<String, String> getPermissions(
+			us.kbase.workspace.api.v1.workspace.WorkspaceIdentity wsi,
+			WorkspaceUser user)
+			throws NoSuchWorkspaceException, WorkspaceCommunicationException,
+			CorruptWorkspaceDBException {
+		return getPermissions(new WorkspaceIdentity()
+				.withId(wsi.getId())
+				.withWorkspace(wsi.getWorkspace()),
+				user);
+	}
+
+	public List<Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>>> listWorkspaceInfo(
+			us.kbase.workspace.api.v1.workspace.ListWorkspaceInfoParams params,
+			WorkspaceUser user)
+			throws WorkspaceCommunicationException,
+			CorruptWorkspaceDBException, ParseException {
+		return listWorkspaceInfo(new ListWorkspaceInfoParams()
+				.withAfter(params.getAfter())
+				.withBefore(params.getBefore())
+				.withExcludeGlobal(params.getExcludeGlobal())
+				.withMeta(params.getMeta())
+				.withOwners(params.getOwners())
+				.withPerm(params.getPerm())
+				.withShowDeleted(params.getShowDeleted())
+				.withShowOnlyDeleted(params.getShowOnlyDeleted()), user);
+	}
+
+	public List<Tuple11<Long, String, String, String, Long, String, Long, String, String, Long, Map<String, String>>> saveObjects(
+			us.kbase.workspace.api.v1.workspace.SaveObjectsParams params,
+			WorkspaceUser user, AuthToken authPart)
+			throws NoSuchObjectException, WorkspaceCommunicationException,
+			CorruptWorkspaceDBException, NoSuchWorkspaceException,
+			WorkspaceAuthorizationException, TypedObjectValidationException,
+			TypeStorageException, TypedObjectSchemaException, ParseException,
+			IOException {
+		return saveObjects(new SaveObjectsParams()
+				.withId(params.getId())
+				.withObjects(convertObjectSaveData(params.getObjects()))
+				.withWorkspace(params.getWorkspace()), user, authPart);
+	}
+
+	private List<ObjectSaveData> convertObjectSaveData(
+			List<us.kbase.workspace.api.v1.workspace.ObjectSaveData> objects) {
+		final List<ObjectSaveData> osd = new LinkedList<ObjectSaveData>();
+		for (final us.kbase.workspace.api.v1.workspace.ObjectSaveData o: objects) {
+			osd.add(new ObjectSaveData()
+					.withData(o.getData())
+					.withHidden(o.getHidden())
+					.withMeta(o.getMeta())
+					.withName(o.getName())
+					.withObjid(o.getObjid())
+					.withProvenance(convertProvenance(o.getProvenance()))
+					.withType(o.getType()));
+		}
+		return osd;
+	}
+
+	
+	private List<ProvenanceAction> convertProvenance(
+			List<us.kbase.workspace.api.v1.workspace.ProvenanceAction> provenance) {
+		final List<ProvenanceAction> pa = new LinkedList<ProvenanceAction>();
+		for (final us.kbase.workspace.api.v1.workspace.ProvenanceAction p: provenance) {
+			pa.add(new ProvenanceAction()
+					.withDescription(p.getDescription())
+					.withExternalData(convertExternalData(p.getExternalData()))
+					.withInputWsObjects(p.getInputWsObjects())
+					.withIntermediateIncoming(p.getIntermediateIncoming())
+					.withIntermediateOutgoing(p.getIntermediateOutgoing())
+					.withMethod(p.getMethod())
+					.withMethodParams(p.getMethodParams())
+					.withResolvedWsObjects(p.getResolvedWsObjects())
+					.withScript(p.getScript())
+					.withScriptCommandLine(p.getScriptCommandLine())
+					.withScriptVer(p.getScriptVer())
+					.withService(p.getService())
+					.withServiceVer(p.getServiceVer())
+					.withTime(p.getTime()));
+		}
+		return pa;
+	}
+
+	private List<ExternalDataUnit> convertExternalData(
+			List<us.kbase.workspace.api.v1.workspace.ExternalDataUnit> externalData) {
+		final List<ExternalDataUnit> edu = new LinkedList<ExternalDataUnit>();
+		for (final us.kbase.workspace.api.v1.workspace.ExternalDataUnit e: externalData) {
+			edu.add(new ExternalDataUnit()
+					.withDataId(e.getDataId())
+					.withDataUrl(e.getDataUrl())
+					.withDescription(e.getDescription())
+					.withResourceName(e.getResourceName())
+					.withResourceReleaseDate(e.getResourceReleaseDate())
+					.withResourceUrl(e.getResourceUrl())
+					.withResourceVersion(e.getResourceVersion()));
+		}
+		return edu;
 	}
 }
