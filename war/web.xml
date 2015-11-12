@@ -1,14 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app>
-    <listener>
-        <listener-class>us.kbase.workspace.kbase.AppEventListener</listener-class>
-    </listener>
-    <servlet>
-    <servlet-name>RootServlet</servlet-name>
-    <servlet-class>us.kbase.workspace.WorkspaceServer</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>RootServlet</servlet-name>
-        <url-pattern>/*</url-pattern>
-    </servlet-mapping>
+	<listener>
+		<listener-class>us.kbase.workspace.kbase.AppEventListener</listener-class>
+	</listener>
+	<servlet>
+		<servlet-name>APIv1Servlet</servlet-name>
+		<servlet-class>us.kbase.workspace.api.v1.workspace.WorkspaceServer</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>APIv2Servlet</servlet-name>
+		<servlet-class>us.kbase.workspace.api.v2.workspace.WorkspaceServer</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>APIv1Servlet</servlet-name>
+		<url-pattern>/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>APIv1Servlet</servlet-name>
+		<url-pattern>/api/v1</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>APIv2Servlet</servlet-name>
+		<url-pattern>/api/v2</url-pattern>
+	</servlet-mapping>
 </web-app>

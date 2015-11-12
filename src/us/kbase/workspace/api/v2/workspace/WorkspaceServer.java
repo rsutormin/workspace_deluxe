@@ -468,7 +468,7 @@ public class WorkspaceServer extends JsonServerServlet {
     public String ver() throws Exception {
         String returnVal = null;
         //BEGIN ver
-		returnVal = VER;
+		returnVal = VER + " API2";
         //END ver
         return returnVal;
     }
