@@ -293,6 +293,9 @@ public class WorkspaceServerMethods {
 	 * Also, the reason for this class is so the administration class
 	 * can call the contained methods. Just make the administration class
 	 * use the most recent API.
+	 * 
+	 * Also also, any method that takes a parameterized list won't work since
+	 * the method signatures are effectively the same.
 	 */
 	public void grantModuleOwnership(
 			us.kbase.workspace.api.v1.workspace.GrantModuleOwnershipParams params,
@@ -316,6 +319,29 @@ public class WorkspaceServerMethods {
 			user, asAdmin);
 		
 	}
+	
+	public void grantModuleOwnership(
+			us.kbase.workspace.api.v2.workspace.GrantModuleOwnershipParams params,
+			WorkspaceUser user, boolean asAdmin)
+			throws TypeStorageException, NoSuchPrivilegeException {
+		grantModuleOwnership(new GrantModuleOwnershipParams()
+				.withMod(params.getMod())
+				.withNewOwner(params.getNewOwner())
+				.withWithGrantOption(params.getWithGrantOption()),
+				user, asAdmin);
+		
+	}
+	
+	public void removeModuleOwnership(
+			us.kbase.workspace.api.v2.workspace.RemoveModuleOwnershipParams params,
+			WorkspaceUser user, boolean asAdmin)
+			throws NoSuchPrivilegeException, TypeStorageException {
+		removeModuleOwnership(new RemoveModuleOwnershipParams()
+			.withMod(params.getMod())
+			.withOldOwner(params.getOldOwner()),
+			user, asAdmin);
+		
+	}
 
 	public Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>> createWorkspace(
 			us.kbase.workspace.api.v1.workspace.CreateWorkspaceParams params,
@@ -328,6 +354,20 @@ public class WorkspaceServerMethods {
 				.withMeta(params.getMeta())
 				.withWorkspace(params.getWorkspace()),
 				user);
+	}
+	
+
+	public Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>> createWorkspace(
+			us.kbase.workspace.api.v2.workspace.CreateWorkspaceParams params,
+			WorkspaceUser user)
+			throws PreExistingWorkspaceException,
+			WorkspaceCommunicationException, CorruptWorkspaceDBException {
+		return createWorkspace(new CreateWorkspaceParams()
+		.withDescription(params.getDescription())
+		.withGlobalread(params.getGlobalread())
+		.withMeta(params.getMeta())
+		.withWorkspace(params.getWorkspace()),
+		user);
 	}
 
 	public void setPermissions(
@@ -383,9 +423,79 @@ public class WorkspaceServerMethods {
 				.withWorkspace(wsi.getWorkspace()),
 				user);
 	}
+	
+	public void setPermissions(
+			us.kbase.workspace.api.v2.workspace.SetPermissionsParams params,
+			WorkspaceUser user)
+			throws CorruptWorkspaceDBException, NoSuchWorkspaceException,
+			WorkspaceCommunicationException, WorkspaceAuthorizationException,
+			IOException, AuthException {
+		setPermissions(new SetPermissionsParams()
+				.withId(params.getId())
+				.withNewPermission(params.getNewPermission())
+				.withUsers(params.getUsers())
+				.withWorkspace(params.getWorkspace()),
+				user);
+		
+	}
+
+	public void setGlobalPermission(
+			us.kbase.workspace.api.v2.workspace.SetGlobalPermissionsParams params,
+			WorkspaceUser user)
+			throws CorruptWorkspaceDBException, NoSuchWorkspaceException,
+			WorkspaceCommunicationException, WorkspaceAuthorizationException {
+		setGlobalPermission(new SetGlobalPermissionsParams()
+			.withId(params.getId())
+			.withNewPermission(params.getNewPermission())
+			.withWorkspace(params.getWorkspace()),
+			user);
+	}
+
+	public us.kbase.workspace.api.v2.workspace.WorkspacePermissions getPermissions(
+			us.kbase.workspace.api.v2.workspace.GetPermissionsMassParams mass, WorkspaceUser user)
+			throws NoSuchWorkspaceException, WorkspaceCommunicationException,
+			CorruptWorkspaceDBException {
+		final List<WorkspaceIdentity> wsis = new LinkedList<WorkspaceIdentity>();
+		for (final us.kbase.workspace.api.v2.workspace.WorkspaceIdentity w:
+				mass.getWorkspaces()) {
+			wsis.add(new WorkspaceIdentity()
+					.withId(w.getId())
+					.withWorkspace(w.getWorkspace()));
+		}
+		final WorkspacePermissions p = getPermissions(wsis, user);
+		return new us.kbase.workspace.api.v2.workspace.WorkspacePermissions()
+				.withPerms(p.getPerms());
+	}
+
+	public Map<String, String> getPermissions(
+			us.kbase.workspace.api.v2.workspace.WorkspaceIdentity wsi,
+			WorkspaceUser user)
+			throws NoSuchWorkspaceException, WorkspaceCommunicationException,
+			CorruptWorkspaceDBException {
+		return getPermissions(new WorkspaceIdentity()
+				.withId(wsi.getId())
+				.withWorkspace(wsi.getWorkspace()),
+				user);
+	}
 
 	public List<Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>>> listWorkspaceInfo(
 			us.kbase.workspace.api.v1.workspace.ListWorkspaceInfoParams params,
+			WorkspaceUser user)
+			throws WorkspaceCommunicationException,
+			CorruptWorkspaceDBException, ParseException {
+		return listWorkspaceInfo(new ListWorkspaceInfoParams()
+				.withAfter(params.getAfter())
+				.withBefore(params.getBefore())
+				.withExcludeGlobal(params.getExcludeGlobal())
+				.withMeta(params.getMeta())
+				.withOwners(params.getOwners())
+				.withPerm(params.getPerm())
+				.withShowDeleted(params.getShowDeleted())
+				.withShowOnlyDeleted(params.getShowOnlyDeleted()), user);
+	}
+	
+	public List<Tuple9<Long, String, String, String, Long, String, String, String, Map<String, String>>> listWorkspaceInfo(
+			us.kbase.workspace.api.v2.workspace.ListWorkspaceInfoParams params,
 			WorkspaceUser user)
 			throws WorkspaceCommunicationException,
 			CorruptWorkspaceDBException, ParseException {
@@ -469,4 +579,6 @@ public class WorkspaceServerMethods {
 		}
 		return edu;
 	}
+	
+
 }

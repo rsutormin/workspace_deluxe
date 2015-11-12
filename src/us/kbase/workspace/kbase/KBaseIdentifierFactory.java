@@ -35,8 +35,18 @@ public class KBaseIdentifierFactory {
 		return processWorkspaceIdentifier(wsi.getWorkspace(), wsi.getId());
 	}
 	
+	/* the next two methods should go in their respective WorkspaceServer
+	 * files
+	 */
 	public static WorkspaceIdentifier processWorkspaceIdentifier(
 			final us.kbase.workspace.api.v1.workspace.WorkspaceIdentity wsi) {
+		return processWorkspaceIdentifier(new WorkspaceIdentity()
+				.withId(wsi.getId()).withWorkspace(wsi.getWorkspace()));
+	}
+	
+
+	public static WorkspaceIdentifier processWorkspaceIdentifier(
+			final us.kbase.workspace.api.v2.workspace.WorkspaceIdentity wsi) {
 		return processWorkspaceIdentifier(new WorkspaceIdentity()
 				.withId(wsi.getId()).withWorkspace(wsi.getWorkspace()));
 	}
