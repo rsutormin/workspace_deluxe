@@ -237,27 +237,8 @@ public class Workspace {
 			final boolean allowInaccessible)
 			throws WorkspaceCommunicationException, InaccessibleObjectException,
 			CorruptWorkspaceDBException {
-		if (loi.isEmpty()) {
-			throw new IllegalArgumentException("No object identifiers provided");
-		}
-		//map is for error purposes only - only stores the most recent object
-		//associated with a workspace
-		final Map<WorkspaceIdentifier, ObjectIdentifier> wsis =
-				new HashMap<WorkspaceIdentifier, ObjectIdentifier>();
-		for (final ObjectIdentifier o: loi) {
-			wsis.put(o.getWorkspaceIdentifier(), o);
-		}
-		final Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis;
-		try {
-			rwsis = db.resolveWorkspaces(wsis.keySet(), allowDeleted,
-					allowMissing);
-		} catch (NoSuchWorkspaceException nswe) {
-			final ObjectIdentifier obj = wsis.get(nswe.getMissingWorkspace());
-			throw new InaccessibleObjectException(String.format(
-					"Object %s cannot be accessed: %s",
-					obj.getIdentifierString(), nswe.getLocalizedMessage()),
-					obj, nswe);
-		}
+		final Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis =
+				resolveWorkspaces(loi, allowDeleted, allowMissing);
 		final PermissionSet perms = db.getPermissions(user,
 						new HashSet<ResolvedWorkspaceID>(rwsis.values()));
 		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
@@ -284,6 +265,35 @@ public class Workspace {
 			ret.put(o, o.resolveWorkspace(r));
 		}
 		return ret;
+	}
+	
+
+	private Map<WorkspaceIdentifier, ResolvedWorkspaceID> resolveWorkspaces(
+			final List<ObjectIdentifier> loi, final boolean allowDeleted,
+			final boolean allowMissing) throws WorkspaceCommunicationException,
+			InaccessibleObjectException {
+		if (loi.isEmpty()) {
+			throw new IllegalArgumentException("No object identifiers provided");
+		}
+		//map is for error purposes only - only stores the most recent object
+		//associated with a workspace
+		final Map<WorkspaceIdentifier, ObjectIdentifier> wsis =
+				new HashMap<WorkspaceIdentifier, ObjectIdentifier>();
+		for (final ObjectIdentifier o: loi) {
+			wsis.put(o.getWorkspaceIdentifier(), o);
+		}
+		final Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis;
+		try {
+			rwsis = db.resolveWorkspaces(wsis.keySet(), allowDeleted,
+					allowMissing);
+		} catch (NoSuchWorkspaceException nswe) {
+			final ObjectIdentifier obj = wsis.get(nswe.getMissingWorkspace());
+			throw new InaccessibleObjectException(String.format(
+					"Object %s cannot be accessed: %s",
+					obj.getIdentifierString(), nswe.getLocalizedMessage()),
+					obj, nswe);
+		}
+		return rwsis;
 	}
 	
 	public WorkspaceInformation createWorkspace(final WorkspaceUser user, 
@@ -930,12 +940,20 @@ public class Workspace {
 		return ret;
 	}
 
-	public List<WorkspaceObjectData> getObjects(final WorkspaceUser user,
-			final List<ObjectIdentifier> loi) throws
-			CorruptWorkspaceDBException, WorkspaceCommunicationException,
-			InaccessibleObjectException {
-		final Map<ObjectIdentifier, ObjectIDResolvedWS> ws = 
-				checkPerms(user, loi, Permission.READ, "read");
+	public List<WorkspaceObjectData> getObjects(
+			final WorkspaceUser user,
+			final List<ObjectIdentifier> loi,
+			final boolean followRefs)
+			throws CorruptWorkspaceDBException,
+			WorkspaceCommunicationException, InaccessibleObjectException {
+		
+		//TODO REFS will need to return path for each object as well here, class with 2 maps?
+		final Map<ObjectIdentifier, ObjectIDResolvedWS> ws;
+		if (followRefs) {
+			ws = getObjectsFollowRefs(user, loi);
+		} else {
+			ws = checkPerms(user, loi, Permission.READ, "read");
+		}
 		//this is pretty gross, think about a better api here
 		final Map<ObjectIDResolvedWS,
 				Map<ObjectPaths, WorkspaceObjectData>> data = 
@@ -950,6 +968,27 @@ public class Workspace {
 		return ret;
 	}
 	
+	//TODO REFS return reference chain
+	//TODO REFS keep reference search tree in memory - calc mem
+	//TODO REFS prune tree on 1) dead end, 2) node already in tree (path must be shorter than current path)
+	//TODO REFS delete tree if > max mem size, & delete before pulling objects
+	//TODO REFS use for other methods as well
+	private Map<ObjectIdentifier, ObjectIDResolvedWS> getObjectsFollowRefs(
+			final WorkspaceUser user,
+			final List<ObjectIdentifier> loi)
+			throws WorkspaceCommunicationException,
+			InaccessibleObjectException, CorruptWorkspaceDBException {
+		final Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis =
+				resolveWorkspaces(loi, true, false);
+		
+		final PermissionSet perms = db.getPermissions(user,
+				new HashSet<ResolvedWorkspaceID>(rwsis.values()));
+		
+		
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	public List<WorkspaceObjectData> getObjectsSubSet(final WorkspaceUser user,
 			final List<SubObjectIdentifier> loi) throws
 			CorruptWorkspaceDBException, WorkspaceCommunicationException,
