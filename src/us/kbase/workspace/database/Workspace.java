@@ -990,12 +990,11 @@ public class Workspace {
 		
 		Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis =
 				resolveWorkspaces(loi, true, false);
-		PermissionSet perms = db.getPermissions(user,
-				new HashSet<ResolvedWorkspaceID>(rwsis.values()));
+		final PermissionSet perms =
+				db.getPermissions(user, Permission.READ, false);
 
 		Map<ObjectIdentifier, ObjectIDResolvedWS> search =
 				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
-		final Set<Long> readableWS = new HashSet<Long>();
 		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
 				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
 
@@ -1004,34 +1003,46 @@ public class Workspace {
 			final ResolvedWorkspaceID r = rwsis.get(o.getWorkspaceIdentifier());
 			if (!r.isDeleted() && perms.hasPermission(r, Permission.READ)){
 				ret.put(o, o.resolveWorkspace(r));
-				readableWS.add(r.getID());
 			} else {
 				search.put(o, o.resolveWorkspace(r));
 			}
 		}
 		rwsis = null; //release to GC
-		perms = null; //release to GC
 		Map<ObjectIDResolvedWS, Reference> refs =
 				db.getObjectReference(new HashSet<ObjectIDResolvedWS>(
 						search.values()), false);
-		final Map<ObjectIdentifier, List<Reference>> searchrefs =
-				new HashMap<ObjectIdentifier, List<Reference>>();
+		final Map<ObjectIdentifier, Set<Reference>> searchrefs =
+				new HashMap<ObjectIdentifier, Set<Reference>>();
 		for (final ObjectIdentifier o: search.keySet()) {
 			final ObjectIDResolvedWS orw = search.get(o);
-			searchrefs.put(o, Arrays.asList(refs.get(orw)));
+			searchrefs.put(o, new HashSet<Reference>(
+					Arrays.asList(refs.get(orw))));
 		}
 		search = null; //release to GC
 		refs = null; //release to GC
-		ret.putAll(followRefs(user, searchrefs, readableWS));
+		ret.putAll(followRefs(user, searchrefs, perms));
 		return ret;
 	}
 
 	private Map<ObjectIdentifier, ObjectIDResolvedWS> followRefs(
 			final WorkspaceUser user,
-			final Map<ObjectIdentifier, List<Reference>> searchrefs,
-			final Set<Long> readableWS) {
-		// TODO Auto-generated method stub
-		return null;
+			final Map<ObjectIdentifier, Set<Reference>> searchrefs,
+			final PermissionSet perms)
+			throws WorkspaceCommunicationException {
+		
+		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
+				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
+		// TODO REF Auto-generated method stub
+		while (!searchrefs.isEmpty()) {
+			final Set<Reference> query = new HashSet<Reference>();
+			for (final Set<Reference> r: searchrefs.values()) {
+				query.addAll(r);
+			}
+			final Map<Reference, Set<Reference>> res =
+					db.getReferencesToObject(query, perms);
+		}
+		
+		return ret;
 	}
 
 	public List<WorkspaceObjectData> getObjectsSubSet(final WorkspaceUser user,

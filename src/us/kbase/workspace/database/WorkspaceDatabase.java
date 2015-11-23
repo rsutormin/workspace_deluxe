@@ -158,9 +158,20 @@ public interface WorkspaceDatabase {
 			final Set<ObjectIDResolvedWS> objectIDs) throws
 			NoSuchObjectException, WorkspaceCommunicationException;
 	
+	/** Returns the self-reference for each of the passed in unresolved
+	 * objects.
+	 */
 	public Map<ObjectIDResolvedWS, Reference> getObjectReference(
 			Set<ObjectIDResolvedWS> objectIDs, boolean exceptIfDeleted) throws
 			NoSuchObjectException, WorkspaceCommunicationException;
+	
+	/** Returns the set of objects that reference each of the given objects.
+	 * 
+	 */
+	public Map<Reference, Set<Reference>> getReferencesToObject(
+			Set<Reference> objectIDs,
+			PermissionSet perms)
+			throws WorkspaceCommunicationException;
 
 	public ObjectInformation copyObject(WorkspaceUser user, 
 			ObjectIDResolvedWS from, ObjectIDResolvedWS to)

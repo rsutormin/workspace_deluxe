@@ -2201,7 +2201,7 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 
 	private static final Set<String> FLDS_GETREFOBJ = newHashSet(
 			Fields.VER_WS_ID, Fields.VER_ID, Fields.VER_VER,
-			Fields.VER_VER, Fields.VER_TYPE, Fields.VER_META,
+			Fields.VER_TYPE, Fields.VER_META,
 			Fields.VER_SAVEDATE, Fields.VER_SAVEDBY,
 			Fields.VER_CHKSUM, Fields.VER_SIZE,
 			Fields.VER_PROVREF, Fields.VER_REF);
@@ -2361,9 +2361,6 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 				meta == null ? null : metaMongoArrayToHash(meta));
 	}
 	
-	private static final Set<String> FLDS_VER_TYPE = newHashSet(
-			Fields.VER_TYPE, Fields.VER_VER);
-	
 	public Map<ObjectIDResolvedWS, TypeAndReference> getObjectType(
 			final Set<ObjectIDResolvedWS> objectIDs) throws
 			NoSuchObjectException, WorkspaceCommunicationException {
@@ -2373,7 +2370,8 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		final Map<ResolvedMongoObjectID, Map<String, Object>> vers = 
 				queryVersions(
 						new HashSet<ResolvedMongoObjectID>(oids.values()),
-						FLDS_VER_TYPE, false);
+						new HashSet<String>(Arrays.asList(Fields.VER_TYPE)),
+						false);
 		final Map<ObjectIDResolvedWS, TypeAndReference> ret =
 				new HashMap<ObjectIDResolvedWS, TypeAndReference>();
 		for (ObjectIDResolvedWS o: objectIDs) {
@@ -2394,6 +2392,7 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		//this method is a pattern - generalize somehow?
 		final Map<ObjectIDResolvedWS, ResolvedMongoObjectID> oids =
 				resolveObjectIDs(objectIDs, exceptIfDeleted, true);
+		verifyVersions(new HashSet<ResolvedMongoObjectID>(oids.values()));
 		final Map<ObjectIDResolvedWS, Reference> ret =
 				new HashMap<ObjectIDResolvedWS, Reference>();
 		for (ObjectIDResolvedWS o: objectIDs) {
@@ -2404,6 +2403,65 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		return ret;
 	}
 	
+	private static final Set<String> FLDS_GETREFTOOBJ = newHashSet(
+			Fields.VER_WS_ID, Fields.VER_ID, Fields.VER_VER,
+			Fields.VER_PROVREF, Fields.VER_REF);
+	
+	//TODO REF what if there are tons of these? Limits?
+	public Map<Reference, Set<Reference>> getReferencesToObject(
+			final Set<Reference> objectIDs,
+			final PermissionSet perms)
+			throws WorkspaceCommunicationException {
+		//similar to getReferencingObjects
+		final List<Long> wsids = new LinkedList<Long>();
+		for (final ResolvedWorkspaceID ws: perms.getWorkspaces()) {
+			wsids.add(ws.getID());
+		}
+		final List<String> refs = new LinkedList<String>();
+		for (final Reference r: objectIDs) {
+			refs.add(r.toString());
+		}
+		final DBObject q = new BasicDBObject(Fields.VER_WS_ID,
+				new BasicDBObject("$in", wsids));
+		q.put("$or", Arrays.asList(
+				new BasicDBObject(Fields.VER_REF,
+						new BasicDBObject("$in", refs)),
+				new BasicDBObject(Fields.VER_PROVREF,
+						new BasicDBObject("$in", refs))));
+		final List<Map<String, Object>> vers = query.queryCollection(
+				COL_WORKSPACE_VERS, q, FLDS_GETREFTOOBJ);
+		
+		final Map<Reference, Set<Reference>> ret =
+				new HashMap<Reference, Set<Reference>>();
+		for (final Reference r: objectIDs) {
+			ret.put(r, new HashSet<Reference>());
+		}
+		for (final Map<String, Object> v: vers) {
+			final long ws = (long) v.get(Fields.VER_WS_ID);
+			final long obj = (long) v.get(Fields.VER_ID);
+			final int ver = (int) v.get(Fields.VER_VER);
+			final Reference thisref = new MongoReference(ws, obj, ver);
+			
+			@SuppressWarnings("unchecked")
+			final List<String> increfs = (List<String>) v.get(Fields.VER_REF);
+			@SuppressWarnings("unchecked")
+			final List<String> provrefs = (List<String>) v.get(
+					Fields.VER_PROVREF);
+			final Set<String> allrefs = new HashSet<String>();
+			allrefs.addAll(increfs);
+			increfs.clear();
+			allrefs.addAll(provrefs);
+			provrefs.clear();
+			for (final String ref: allrefs) {
+				final Reference r = new MongoReference(ref);
+				if (ret.containsKey(r)) {
+					ret.get(r).add(thisref);
+				}
+			}
+		}
+		return ret;
+	}
+
 	private static final Set<String> FLDS_LIST_OBJ_VER = newHashSet(
 			Fields.VER_VER, Fields.VER_TYPE, Fields.VER_SAVEDATE,
 			Fields.VER_SAVEDBY, Fields.VER_VER, Fields.VER_CHKSUM,
@@ -2805,6 +2863,9 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 			return vers;
 		}
 		for (ResolvedMongoObjectID roi: objectIds) {
+			// the ID was resolved, but could have been deleted since then,
+			// or if the database faile between an autoincrement and a version
+			// save the version might not exist
 			if (!vers.containsKey(roi)) {
 				ObjectIDResolvedWS oid = new ObjectIDResolvedWS(
 						roi.getWorkspaceIdentifier(), roi.getId());
@@ -2817,7 +2878,6 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		}
 		return vers;
 	}
-	
 	
 	//In rare race conditions an object may exist with a ver count of 1 but
 	//no versions. Really need to move this code to a backend DB with
