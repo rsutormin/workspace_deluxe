@@ -939,6 +939,14 @@ public class Workspace {
 		removeInaccessibleProvenanceCopyReferences(user, ret);
 		return ret;
 	}
+	
+	public List<WorkspaceObjectData> getObjects(
+			final WorkspaceUser user,
+			final List<ObjectIdentifier> loi)
+			throws CorruptWorkspaceDBException,
+			WorkspaceCommunicationException, InaccessibleObjectException {
+		return getObjects(user, loi, false);
+	}
 
 	public List<WorkspaceObjectData> getObjects(
 			final WorkspaceUser user,
@@ -950,7 +958,7 @@ public class Workspace {
 		//TODO REFS will need to return path for each object as well here, class with 2 maps?
 		final Map<ObjectIdentifier, ObjectIDResolvedWS> ws;
 		if (followRefs) {
-			ws = getObjectsFollowRefs(user, loi);
+			ws = followRefs(user, loi);
 		} else {
 			ws = checkPerms(user, loi, Permission.READ, "read");
 		}
@@ -972,19 +980,56 @@ public class Workspace {
 	//TODO REFS keep reference search tree in memory - calc mem
 	//TODO REFS prune tree on 1) dead end, 2) node already in tree (path must be shorter than current path)
 	//TODO REFS delete tree if > max mem size, & delete before pulling objects
-	//TODO REFS use for other methods as well
-	private Map<ObjectIdentifier, ObjectIDResolvedWS> getObjectsFollowRefs(
+	//TODO REFS use for other methods as well, most get* methods that take an ObjectIdentifier
+	//TODO REFS tests
+	private Map<ObjectIdentifier, ObjectIDResolvedWS> followRefs(
 			final WorkspaceUser user,
 			final List<ObjectIdentifier> loi)
 			throws WorkspaceCommunicationException,
 			InaccessibleObjectException, CorruptWorkspaceDBException {
-		final Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis =
+		
+		Map<WorkspaceIdentifier, ResolvedWorkspaceID> rwsis =
 				resolveWorkspaces(loi, true, false);
-		
-		final PermissionSet perms = db.getPermissions(user,
+		PermissionSet perms = db.getPermissions(user,
 				new HashSet<ResolvedWorkspaceID>(rwsis.values()));
-		
-		
+
+		Map<ObjectIdentifier, ObjectIDResolvedWS> search =
+				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
+		final Set<Long> readableWS = new HashSet<Long>();
+		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
+				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
+
+		//TODO REFS need to worry about providing the path here
+		for (final ObjectIdentifier o: loi) {
+			final ResolvedWorkspaceID r = rwsis.get(o.getWorkspaceIdentifier());
+			if (!r.isDeleted() && perms.hasPermission(r, Permission.READ)){
+				ret.put(o, o.resolveWorkspace(r));
+				readableWS.add(r.getID());
+			} else {
+				search.put(o, o.resolveWorkspace(r));
+			}
+		}
+		rwsis = null; //release to GC
+		perms = null; //release to GC
+		Map<ObjectIDResolvedWS, Reference> refs =
+				db.getObjectReference(new HashSet<ObjectIDResolvedWS>(
+						search.values()), false);
+		final Map<ObjectIdentifier, List<Reference>> searchrefs =
+				new HashMap<ObjectIdentifier, List<Reference>>();
+		for (final ObjectIdentifier o: search.keySet()) {
+			final ObjectIDResolvedWS orw = search.get(o);
+			searchrefs.put(o, Arrays.asList(refs.get(orw)));
+		}
+		search = null; //release to GC
+		refs = null; //release to GC
+		ret.putAll(followRefs(user, searchrefs, readableWS));
+		return ret;
+	}
+
+	private Map<ObjectIdentifier, ObjectIDResolvedWS> followRefs(
+			final WorkspaceUser user,
+			final Map<ObjectIdentifier, List<Reference>> searchrefs,
+			final Set<Long> readableWS) {
 		// TODO Auto-generated method stub
 		return null;
 	}

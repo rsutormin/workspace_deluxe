@@ -157,6 +157,10 @@ public interface WorkspaceDatabase {
 	public Map<ObjectIDResolvedWS, TypeAndReference> getObjectType(
 			final Set<ObjectIDResolvedWS> objectIDs) throws
 			NoSuchObjectException, WorkspaceCommunicationException;
+	
+	public Map<ObjectIDResolvedWS, Reference> getObjectReference(
+			Set<ObjectIDResolvedWS> objectIDs, boolean exceptIfDeleted) throws
+			NoSuchObjectException, WorkspaceCommunicationException;
 
 	public ObjectInformation copyObject(WorkspaceUser user, 
 			ObjectIDResolvedWS from, ObjectIDResolvedWS to)

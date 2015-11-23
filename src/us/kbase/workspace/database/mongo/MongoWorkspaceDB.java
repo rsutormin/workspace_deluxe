@@ -2382,8 +2382,24 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 					AbsoluteTypeDefId.fromAbsoluteTypeString(
 							(String) vers.get(roi).get(Fields.VER_TYPE)),
 					new MongoReference(roi.getWorkspaceIdentifier().getID(),
-							roi.getId(),
-							(Integer) vers.get(roi).get(Fields.VER_VER))));
+							roi.getId(), roi.getVersion())));
+		}
+		return ret;
+	}
+	
+	public Map<ObjectIDResolvedWS, Reference> getObjectReference(
+			final Set<ObjectIDResolvedWS> objectIDs,
+			final boolean exceptIfDeleted)
+			throws NoSuchObjectException, WorkspaceCommunicationException {
+		//this method is a pattern - generalize somehow?
+		final Map<ObjectIDResolvedWS, ResolvedMongoObjectID> oids =
+				resolveObjectIDs(objectIDs, exceptIfDeleted, true);
+		final Map<ObjectIDResolvedWS, Reference> ret =
+				new HashMap<ObjectIDResolvedWS, Reference>();
+		for (ObjectIDResolvedWS o: objectIDs) {
+			final ResolvedMongoObjectID roi = oids.get(o);
+			ret.put(o, new MongoReference(roi.getWorkspaceIdentifier().getID(),
+							roi.getId(), roi.getVersion()));
 		}
 		return ret;
 	}
