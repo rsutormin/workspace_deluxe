@@ -2361,17 +2361,20 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 				meta == null ? null : metaMongoArrayToHash(meta));
 	}
 	
+	private static final Set<String> FLDS_VER_TYPE = newHashSet(
+			Fields.VER_TYPE, Fields.VER_VER);
+	
 	public Map<ObjectIDResolvedWS, TypeAndReference> getObjectType(
 			final Set<ObjectIDResolvedWS> objectIDs) throws
 			NoSuchObjectException, WorkspaceCommunicationException {
 		//this method is a pattern - generalize somehow?
 		final Map<ObjectIDResolvedWS, ResolvedMongoObjectID> oids =
 				resolveObjectIDs(objectIDs);
+		//instead of calling verifyVersions() just query the version here
 		final Map<ResolvedMongoObjectID, Map<String, Object>> vers = 
 				queryVersions(
 						new HashSet<ResolvedMongoObjectID>(oids.values()),
-						new HashSet<String>(Arrays.asList(Fields.VER_TYPE)),
-						false);
+						FLDS_VER_TYPE, false);
 		final Map<ObjectIDResolvedWS, TypeAndReference> ret =
 				new HashMap<ObjectIDResolvedWS, TypeAndReference>();
 		for (ObjectIDResolvedWS o: objectIDs) {
@@ -2380,7 +2383,8 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 					AbsoluteTypeDefId.fromAbsoluteTypeString(
 							(String) vers.get(roi).get(Fields.VER_TYPE)),
 					new MongoReference(roi.getWorkspaceIdentifier().getID(),
-							roi.getId(), roi.getVersion())));
+							roi.getId(),
+							(Integer) vers.get(roi).get(Fields.VER_VER))));
 		}
 		return ret;
 	}
@@ -2864,7 +2868,7 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		}
 		for (ResolvedMongoObjectID roi: objectIds) {
 			// the ID was resolved, but could have been deleted since then,
-			// or if the database faile between an autoincrement and a version
+			// or if the database failed between an autoincrement and a version
 			// save the version might not exist
 			if (!vers.containsKey(roi)) {
 				ObjectIDResolvedWS oid = new ObjectIDResolvedWS(
