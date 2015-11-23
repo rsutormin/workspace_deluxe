@@ -2441,9 +2441,9 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 			ret.put(r, new HashSet<Reference>());
 		}
 		for (final Map<String, Object> v: vers) {
-			final long ws = (long) v.get(Fields.VER_WS_ID);
-			final long obj = (long) v.get(Fields.VER_ID);
-			final int ver = (int) v.get(Fields.VER_VER);
+			final long ws = (Long) v.get(Fields.VER_WS_ID);
+			final long obj = (Long) v.get(Fields.VER_ID);
+			final int ver = (Integer) v.get(Fields.VER_VER);
 			final Reference thisref = new MongoReference(ws, obj, ver);
 			
 			@SuppressWarnings("unchecked")
