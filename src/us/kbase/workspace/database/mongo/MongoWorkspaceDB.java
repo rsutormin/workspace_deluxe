@@ -2435,10 +2435,16 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		final List<Map<String, Object>> vers = query.queryCollection(
 				COL_WORKSPACE_VERS, q, FLDS_GETREFTOOBJ);
 		
-		final Map<Reference, Set<Reference>> ret =
+		return buildReferenceToReferencesMap(objectIDs, vers);
+	}
+
+	private Map<Reference, Set<Reference>> buildReferenceToReferencesMap(
+			final Set<Reference> refs,
+			final List<Map<String, Object>> vers) {
+		final Map<Reference, Set<Reference>> refToRefs =
 				new HashMap<Reference, Set<Reference>>();
-		for (final Reference r: objectIDs) {
-			ret.put(r, new HashSet<Reference>());
+		for (final Reference r: refs) {
+			refToRefs.put(r, new HashSet<Reference>());
 		}
 		for (final Map<String, Object> v: vers) {
 			final long ws = (Long) v.get(Fields.VER_WS_ID);
@@ -2446,24 +2452,25 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 			final int ver = (Integer) v.get(Fields.VER_VER);
 			final Reference thisref = new MongoReference(ws, obj, ver);
 			
+			final Set<String> allrefs = new HashSet<String>();
 			@SuppressWarnings("unchecked")
 			final List<String> increfs = (List<String>) v.get(Fields.VER_REF);
+			allrefs.addAll(increfs);
+			increfs.clear();
 			@SuppressWarnings("unchecked")
 			final List<String> provrefs = (List<String>) v.get(
 					Fields.VER_PROVREF);
-			final Set<String> allrefs = new HashSet<String>();
-			allrefs.addAll(increfs);
-			increfs.clear();
 			allrefs.addAll(provrefs);
 			provrefs.clear();
 			for (final String ref: allrefs) {
 				final Reference r = new MongoReference(ref);
-				if (ret.containsKey(r)) {
-					ret.get(r).add(thisref);
+				if (refToRefs.containsKey(r)) {
+					refToRefs.get(r).add(thisref);
 				}
 			}
+			
 		}
-		return ret;
+		return refToRefs;
 	}
 
 	private static final Set<String> FLDS_LIST_OBJ_VER = newHashSet(

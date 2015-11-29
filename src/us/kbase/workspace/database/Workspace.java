@@ -1031,7 +1031,6 @@ public class Workspace {
 			throws WorkspaceCommunicationException,
 			InaccessibleObjectException {
 		
-		//TODO REFS split this method up
 		final Map<Long, ResolvedWorkspaceID> idToWS =
 				new HashMap<Long, ResolvedWorkspaceID>();
 		for (final ResolvedWorkspaceID r: perms.getWorkspaces()) {
@@ -1049,23 +1048,13 @@ public class Workspace {
 			}
 			final Map<Reference, Set<Reference>> res =
 					db.getReferencesToObject(query, perms);
+			query.clear();
 			
+			final Set<ObjectIDResolvedWS> readable =
+					new HashSet<ObjectIDResolvedWS>();
 			for (final ObjectIdentifier oi: searchrefs.keySet()) {
-				final Set<Reference> newrefs = new HashSet<Reference>();
-				for (final Reference r: searchrefs.get(oi)) {
-					if (res.containsKey(r)) {
-						newrefs.addAll(res.get(r));
-					}
-				}
-				if (newrefs.isEmpty()) {
-					throw new InaccessibleObjectException(String.format(
-							"Object %s in workspace %s is not accessible to user %s",
-							oi.getIdentifierString(),
-							oi.getWorkspaceIdentifierString(),
-							user));
-				}
-				final Set<ObjectIDResolvedWS> readable =
-						new HashSet<ObjectIDResolvedWS>();
+				final Set<Reference> newrefs = getNewRefsFromOldRefs(user,
+						searchrefs, res, oi);
 				for (final Reference r: newrefs) {
 					if (idToWS.containsKey(r.getWorkspaceID())) {
 						final ResolvedWorkspaceID rwsi =
@@ -1074,22 +1063,59 @@ public class Workspace {
 								rwsi, r.getId(), r.getVersion()));
 					}
 				}
-				final Map<ObjectIDResolvedWS, Boolean> exists =
-						db.getObjectExists(readable, false);
-				for (final ObjectIDResolvedWS refoi: exists.keySet()) {
-					if (exists.get(refoi)) { //ok, search over
-						ret.put(oi, refoi);
-						searchrefs.remove(oi);
-						break;
-					}
-				}
-				if (searchrefs.containsKey(oi)) { //didn't find a path to the object
-					searchrefs.put(oi, newrefs);
-				}
+				searchrefs.put(oi, newrefs);
 			}
+			res.clear();
+			findReadableReferences(idToWS, readable, searchrefs, ret);
 		}
 		
 		return ret;
+	}
+
+	private Set<Reference> getNewRefsFromOldRefs(
+			final WorkspaceUser user,
+			final Map<ObjectIdentifier, Set<Reference>> searchrefs,
+			final Map<Reference, Set<Reference>> refToRefs,
+			final ObjectIdentifier oi)
+			throws InaccessibleObjectException {
+		final Set<Reference> newrefs = new HashSet<Reference>();
+		for (final Reference r: searchrefs.get(oi)) {
+			if (refToRefs.containsKey(r)) {
+				newrefs.addAll(refToRefs.get(r));
+			}
+		}
+		if (newrefs.isEmpty()) {
+			throw new InaccessibleObjectException(String.format(
+					"Object %s in workspace %s is not accessible to user %s",
+					oi.getIdentifierString(),
+					oi.getWorkspaceIdentifierString(),
+					user));
+		}
+		return newrefs;
+	}
+
+	private void findReadableReferences(
+			final Map<Long, ResolvedWorkspaceID> idToWS,
+			final Set<ObjectIDResolvedWS> readable,
+			final Map<ObjectIdentifier, Set<Reference>> searchrefs,
+			final Map<ObjectIdentifier, ObjectIDResolvedWS> ret)
+			throws WorkspaceCommunicationException {
+		final Map<ObjectIDResolvedWS, Boolean> exists =
+				db.getObjectExists(readable, false);
+		for (final ObjectIdentifier oi: searchrefs.keySet()) {
+			for (final Reference r: searchrefs.get(oi)) {
+				final ResolvedWorkspaceID rwsi =
+						idToWS.get(r.getWorkspaceID());
+				final ObjectIDResolvedWS refoi = new ObjectIDResolvedWS(
+						rwsi, r.getId(), r.getVersion());
+				if (exists.containsKey(refoi) && exists.get(refoi)) {
+					//ok, search over
+					ret.put(oi, refoi);
+					searchrefs.remove(oi);
+					break;
+				}
+			}
+		}
 	}
 
 	public List<WorkspaceObjectData> getObjectsSubSet(final WorkspaceUser user,
