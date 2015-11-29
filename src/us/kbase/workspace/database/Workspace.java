@@ -1028,11 +1028,20 @@ public class Workspace {
 			final WorkspaceUser user,
 			final Map<ObjectIdentifier, Set<Reference>> searchrefs,
 			final PermissionSet perms)
-			throws WorkspaceCommunicationException {
+			throws WorkspaceCommunicationException,
+			InaccessibleObjectException {
+		
+		//TODO REFS split this method up
+		final Map<Long, ResolvedWorkspaceID> idToWS =
+				new HashMap<Long, ResolvedWorkspaceID>();
+		for (final ResolvedWorkspaceID r: perms.getWorkspaces()) {
+			if (!r.isDeleted()) { //should always have read permission
+				idToWS.put(r.getID(), r);
+			}
+		}
 		
 		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
 				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
-		// TODO REF Auto-generated method stub
 		while (!searchrefs.isEmpty()) {
 			final Set<Reference> query = new HashSet<Reference>();
 			for (final Set<Reference> r: searchrefs.values()) {
@@ -1040,6 +1049,44 @@ public class Workspace {
 			}
 			final Map<Reference, Set<Reference>> res =
 					db.getReferencesToObject(query, perms);
+			
+			for (final ObjectIdentifier oi: searchrefs.keySet()) {
+				final Set<Reference> newrefs = new HashSet<Reference>();
+				for (final Reference r: searchrefs.get(oi)) {
+					if (res.containsKey(r)) {
+						newrefs.addAll(res.get(r));
+					}
+				}
+				if (newrefs.isEmpty()) {
+					throw new InaccessibleObjectException(String.format(
+							"Object %s in workspace %s is not accessible to user %s",
+							oi.getIdentifierString(),
+							oi.getWorkspaceIdentifierString(),
+							user));
+				}
+				final Set<ObjectIDResolvedWS> readable =
+						new HashSet<ObjectIDResolvedWS>();
+				for (final Reference r: newrefs) {
+					if (idToWS.containsKey(r.getWorkspaceID())) {
+						final ResolvedWorkspaceID rwsi =
+								idToWS.get(r.getWorkspaceID());
+						readable.add(new ObjectIDResolvedWS(
+								rwsi, r.getId(), r.getVersion()));
+					}
+				}
+				final Map<ObjectIDResolvedWS, Boolean> exists =
+						db.getObjectExists(readable, false);
+				for (final ObjectIDResolvedWS refoi: exists.keySet()) {
+					if (exists.get(refoi)) { //ok, search over
+						ret.put(oi, refoi);
+						searchrefs.remove(oi);
+						break;
+					}
+				}
+				if (searchrefs.containsKey(oi)) { //didn't find a path to the object
+					searchrefs.put(oi, newrefs);
+				}
+			}
 		}
 		
 		return ret;

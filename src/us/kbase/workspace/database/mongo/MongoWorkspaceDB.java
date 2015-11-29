@@ -2411,7 +2411,7 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 			Fields.VER_WS_ID, Fields.VER_ID, Fields.VER_VER,
 			Fields.VER_PROVREF, Fields.VER_REF);
 	
-	//TODO REF what if there are tons of these? Limits?
+	//TODO REFS what if there are tons of these? Limits?
 	public Map<Reference, Set<Reference>> getReferencesToObject(
 			final Set<Reference> objectIDs,
 			final PermissionSet perms)
@@ -2940,10 +2940,17 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 		return ret;
 	}
 	
-
 	@Override
 	public Map<ObjectIDResolvedWS, Boolean> getObjectExists(
 			final Set<ObjectIDResolvedWS> objectIDs)
+			throws WorkspaceCommunicationException {
+		return getObjectExists(objectIDs, true);
+	}
+	
+	@Override
+	public Map<ObjectIDResolvedWS, Boolean> getObjectExists(
+			final Set<ObjectIDResolvedWS> objectIDs,
+			final boolean verifyVersions)
 			throws WorkspaceCommunicationException {
 		final Map<ResolvedMongoObjectID, Boolean> exists;
 		final Map<ObjectIDResolvedWS, ResolvedMongoObjectID> objs;
@@ -2956,14 +2963,21 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 					i.remove();
 				}
 			}
-			exists = verifyVersions(new HashSet<ResolvedMongoObjectID>(
-					objs.values()), false);
+			if (verifyVersions) {
+				exists = verifyVersions(new HashSet<ResolvedMongoObjectID>(
+						objs.values()), false);
+			} else {
+				exists = new HashMap<ResolvedMongoObjectID, Boolean>();
+				for (ResolvedMongoObjectID id: objs.values()) {
+					exists.put(id, true);
+				}
+			}
 		} catch (NoSuchObjectException e) {
 			throw new RuntimeException(
 					"Explicitly told not to throw exception but did anyway",
 					e);
 		}
-		Map<ObjectIDResolvedWS, Boolean> ret =
+		final Map<ObjectIDResolvedWS, Boolean> ret =
 				new HashMap<ObjectIDResolvedWS, Boolean>();
 		for (final ObjectIDResolvedWS o: objectIDs) {
 			if (!objs.containsKey(o)) {

@@ -224,8 +224,30 @@ public interface WorkspaceDatabase {
 			boolean showAllVers, boolean includeMetaData, int skip, int limit)
 			throws WorkspaceCommunicationException;
 
+	/** Verify that a set of objects exist in the database and are not in
+	 * the deleted state.
+	 * @param objectIDs the objects to check.
+	 * @return a map of objects to their state of existence in the database.
+	 * @throws WorkspaceCommunicationException if a communication exception
+	 * occurs.
+	 */
 	public Map<ObjectIDResolvedWS, Boolean> getObjectExists(
 			Set<ObjectIDResolvedWS> objectIDs)
+			throws WorkspaceCommunicationException;
+	
+	/** Verify that a set of objects exist in the database and are not in
+	 * the deleted state.
+	 * @param objectIDs the objects to check.
+	 * @param verifyVersions true to verify that the object version given in
+	 * the object ID (or the latest version, if no version is given) exists.
+	 * In most cases this should be true, but if the version is irrelevant
+	 * setting this to false saves a database query.
+	 * @return a map of objects to their state of existence in the database.
+	 * @throws WorkspaceCommunicationException if a communication exception
+	 * occurs.
+	 */
+	public Map<ObjectIDResolvedWS, Boolean> getObjectExists(
+			Set<ObjectIDResolvedWS> objectIDs, boolean verifyVersions)
 			throws WorkspaceCommunicationException;
 	
 	public List<ObjectInformation> getObjectHistory(
