@@ -1085,8 +1085,12 @@ public class Workspace {
 			}
 		}
 		if (newrefs.isEmpty()) {
+			final String verString = oi.getVersion() == null ?
+					"The latest version of " :
+					String.format("Version %s of ", oi.getVersion());
 			throw new InaccessibleObjectException(String.format(
-					"Object %s in workspace %s is not accessible to user %s",
+					"%s object %s in workspace %s is not accessible to user %s",
+					verString,
 					oi.getIdentifierString(),
 					oi.getWorkspaceIdentifierString(),
 					user));
