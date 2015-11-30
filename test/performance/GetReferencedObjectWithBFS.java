@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +44,9 @@ import com.mongodb.DB;
  */
 public class GetReferencedObjectWithBFS {
 	
-	private static final int LINEAR_TEST_REPS = 3;
+	private static final int TEST_REPS = 3;
+	private static final boolean DO_LINEAR = false;
+	private static final boolean DO_BRANCHED = true;
 	
 	private static final String MOD_NAME_STR = "TestModule";
 	private static final String LEAF_TYPE_STR = "LeafType";
@@ -57,6 +60,7 @@ public class GetReferencedObjectWithBFS {
 					new TypeDefName(MOD_NAME_STR, REF_TYPE_STR), 1, 0);
 	
 	private static Workspace WS;
+	private static DB WSDB;
 
 	public static void main(String[] args) throws Exception {
 		final Logger rootLogger = ((Logger) LoggerFactory.getLogger(
@@ -68,9 +72,10 @@ public class GetReferencedObjectWithBFS {
 				Paths.get(WorkspaceTestCommon.getTempDir()),
 				WorkspaceTestCommon.useWiredTigerEngine());
 		System.out.println("Using Mongo temp dir " + mongo.getTempDir());
-		DB wsdb = GetMongoDB.getDB("localhost:" + mongo.getServerPort(),
+		System.out.println("Mongo port: " + mongo.getServerPort());
+		WSDB = GetMongoDB.getDB("localhost:" + mongo.getServerPort(),
 				"GetReferencedObjectBFSTest");
-		WorkspaceTestCommon.destroyWSandTypeDBs(wsdb,
+		WorkspaceTestCommon.destroyWSandTypeDBs(WSDB,
 				"GetReferencedObjectBFSTest_types");
 		
 		TempFilesManager tfm = new TempFilesManager(
@@ -81,17 +86,19 @@ public class GetReferencedObjectWithBFS {
 				new TypeDefinitionDB(new MongoTypeStorage(
 						GetMongoDB.getDB("localhost:" + mongo.getServerPort(),
 								"GetReferencedObjectBFSTest_types"))));
-		MongoWorkspaceDB mwdb = new MongoWorkspaceDB(wsdb,
-				new GridFSBlobStore(wsdb), tfm, val);
+		MongoWorkspaceDB mwdb = new MongoWorkspaceDB(WSDB,
+				new GridFSBlobStore(WSDB), tfm, val);
 		WS = new Workspace(mwdb,
 				new ResourceUsageConfigurationBuilder().build(),
 				new DefaultReferenceParser());
 		
 		installTypes();
-		runLinearReferencesTest();
-		
-
-		
+		if (DO_LINEAR) {
+			runLinearReferencesTest();
+		}
+		if (DO_BRANCHED) {
+			runBranchedReferencesTest();
+		}
 		tfm.cleanup();
 		mongo.destroy(true);
 	}
@@ -117,13 +124,66 @@ public class GetReferencedObjectWithBFS {
 		WS.releaseTypes(foo, MOD_NAME_STR);
 	}
 
+
+	private static void runBranchedReferencesTest() throws Exception {
+		WorkspaceUser u1 = new WorkspaceUser("brcu1");
+		WorkspaceUser u2 = new WorkspaceUser("brcu2");
+		IdReferenceHandlerSetFactory fac = new IdReferenceHandlerSetFactory(10);
+		Provenance p = new Provenance(u1);
+		WorkspaceIdentifier read = new WorkspaceIdentifier("brcread");
+		WorkspaceIdentifier priv = new WorkspaceIdentifier("brcpriv");
+		for (int breadth = 1; breadth <= 10; breadth++) {
+			WorkspaceTestCommon.destroyDB(WSDB);
+			WS.createWorkspace(u1, read.getName(), false, null, null);
+			WS.createWorkspace(u1, priv.getName(), true, null, null);
+			ObjectInformation o = WS.saveObjects(u1, priv, Arrays.asList(
+					new WorkspaceSaveObject(new HashMap<String, String>(), LEAF_TYPE,
+							null, p, false)), fac).get(0);
+			List<ObjectInformation> increfs = new LinkedList<ObjectInformation>();
+			increfs.add(o);
+			for (int depth = 1; depth <= 6; depth++) {
+				increfs = generateReferences(u1, priv, increfs, breadth);
+//				System.out.println(breadth + " " + depth + " " + increfs.size());
+			}
+			saveRefData(u1, read, increfs.get(0));
+			System.out.print(breadth + " ");
+			for (int j = 0; j < TEST_REPS; j++) {
+				long start = System.nanoTime();
+				WS.getObjects(u2, Arrays.asList(new ObjectIdentifier(priv, o.getObjectId())), true);
+				System.out.print((System.nanoTime() - start) + " ");
+			}
+			System.out.println();
+		}
+	}
+
+	
+	private static List<ObjectInformation> generateReferences(
+			WorkspaceUser user,
+			WorkspaceIdentifier wsi,
+			List<ObjectInformation> increfs,
+			int breadth) 
+			throws Exception {
+		IdReferenceHandlerSetFactory fac = new IdReferenceHandlerSetFactory(10000000);
+		Provenance p = new Provenance(user);
+		List<WorkspaceSaveObject> objs = new LinkedList<WorkspaceSaveObject>();
+		for (ObjectInformation oi: increfs) {
+			String ref = oi.getWorkspaceId() + "/" + oi.getObjectId() + "/" + oi.getVersion();
+			Map<String, List<String>> refdata = new HashMap<String, List<String>>();
+			refdata.put("refs", Arrays.asList(ref));
+			for (int i = 0; i < breadth; i++) {
+				objs.add(new WorkspaceSaveObject(refdata, REF_TYPE, null, p, false));
+			}
+		}
+		return WS.saveObjects(user, wsi, objs, fac);
+	}
+
 	private static void runLinearReferencesTest() throws Exception {
-		WorkspaceUser u1 = new WorkspaceUser("u1");
-		WorkspaceUser u2 = new WorkspaceUser("u2");
-		WS.createWorkspace(u1, "priv", false, null, null);
-		WorkspaceIdentifier priv = new WorkspaceIdentifier("priv");
-		WS.createWorkspace(u1, "read", true, null, null);
-		WorkspaceIdentifier read = new WorkspaceIdentifier("read");
+		WorkspaceUser u1 = new WorkspaceUser("linu1");
+		WorkspaceUser u2 = new WorkspaceUser("linu2");
+		WorkspaceIdentifier priv = new WorkspaceIdentifier("linpriv");
+		WS.createWorkspace(u1, priv.getName(), false, null, null);
+		WorkspaceIdentifier read = new WorkspaceIdentifier("linread");
+		WS.createWorkspace(u1, read.getName(), true, null, null);
 		
 		IdReferenceHandlerSetFactory fac = new IdReferenceHandlerSetFactory(10000);
 		Provenance p = new Provenance(u1);
@@ -134,11 +194,11 @@ public class GetReferencedObjectWithBFS {
 		for (int i = 2; i <= 50; i++) {
 			o = saveRefData(u1, priv, o);
 		}
-		o = saveRefData(u1, read, o);
+		saveRefData(u1, read, o);
 		
 		for (int i = 50; i > 0; i--) {
 			System.out.print(i + " ");
-			for (int j = 0; j < LINEAR_TEST_REPS; j++) {
+			for (int j = 0; j < TEST_REPS; j++) {
 				long start = System.nanoTime();
 				WS.getObjects(u2, Arrays.asList(new ObjectIdentifier(priv, i)), true);
 				System.out.print((System.nanoTime() - start) + " ");
@@ -147,6 +207,7 @@ public class GetReferencedObjectWithBFS {
 		}
 	}
 
+	// just use generateReferences above
 	private static ObjectInformation saveRefData(
 			WorkspaceUser u1,
 			WorkspaceIdentifier priv,
