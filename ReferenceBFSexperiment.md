@@ -45,6 +45,9 @@ Three measurements were made per tree.
 
 Note that at a breadth of 4, the search must traverse 5461 nodes, and yet is
 faster than a search with breadth 1 and depth 50 which only traverses 50 nodes.
+A possible explanation is that at lower node counts transport from the
+workspace service to mongoDB dominates, while at higher node counts mongoDB
+document reads dominate.
 
 TODO update graph
 
