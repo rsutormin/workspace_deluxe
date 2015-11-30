@@ -2413,21 +2413,14 @@ public class MongoWorkspaceDB implements WorkspaceDatabase {
 	
 	//TODO REFS what if there are tons of these? Limits?
 	public Map<Reference, Set<Reference>> getReferencesToObject(
-			final Set<Reference> objectIDs,
-			final PermissionSet perms)
+			final Set<Reference> objectIDs)
 			throws WorkspaceCommunicationException {
 		//similar to getReferencingObjects
-		final List<Long> wsids = new LinkedList<Long>();
-		for (final ResolvedWorkspaceID ws: perms.getWorkspaces()) {
-			wsids.add(ws.getID());
-		}
 		final List<String> refs = new LinkedList<String>();
 		for (final Reference r: objectIDs) {
 			refs.add(r.toString());
 		}
-		final DBObject q = new BasicDBObject(Fields.VER_WS_ID,
-				new BasicDBObject("$in", wsids));
-		q.put("$or", Arrays.asList(
+		final DBObject q = new BasicDBObject("$or", Arrays.asList(
 				new BasicDBObject(Fields.VER_REF,
 						new BasicDBObject("$in", refs)),
 				new BasicDBObject(Fields.VER_PROVREF,

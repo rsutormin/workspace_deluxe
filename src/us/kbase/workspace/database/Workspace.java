@@ -1001,7 +1001,9 @@ public class Workspace {
 		//TODO REFS need to worry about providing the path here
 		for (final ObjectIdentifier o: loi) {
 			final ResolvedWorkspaceID r = rwsis.get(o.getWorkspaceIdentifier());
-			if (!r.isDeleted() && perms.hasPermission(r, Permission.READ)){
+			if (!r.isDeleted() &&
+					perms.hasWorkspace(r) && // TODO REFS integrate this functionality into the hasPermission call below
+					perms.hasPermission(r, Permission.READ)){
 				ret.put(o, o.resolveWorkspace(r));
 			} else {
 				search.put(o, o.resolveWorkspace(r));
@@ -1027,7 +1029,7 @@ public class Workspace {
 	private Map<ObjectIdentifier, ObjectIDResolvedWS> followRefs(
 			final WorkspaceUser user,
 			final Map<ObjectIdentifier, Set<Reference>> searchrefs,
-			final PermissionSet perms)
+			PermissionSet perms)
 			throws WorkspaceCommunicationException,
 			InaccessibleObjectException {
 		
@@ -1038,6 +1040,7 @@ public class Workspace {
 				idToWS.put(r.getID(), r);
 			}
 		}
+		perms = null; //don't need 'em
 		
 		final Map<ObjectIdentifier, ObjectIDResolvedWS> ret =
 				new HashMap<ObjectIdentifier, ObjectIDResolvedWS>();
@@ -1047,7 +1050,7 @@ public class Workspace {
 				query.addAll(r);
 			}
 			final Map<Reference, Set<Reference>> res =
-					db.getReferencesToObject(query, perms);
+					db.getReferencesToObject(query);
 			query.clear();
 			
 			final Set<ObjectIDResolvedWS> readable =
@@ -1060,7 +1063,7 @@ public class Workspace {
 						final ResolvedWorkspaceID rwsi =
 								idToWS.get(r.getWorkspaceID());
 						readable.add(new ObjectIDResolvedWS(
-								rwsi, r.getId(), r.getVersion()));
+								rwsi, r.getObjectID(), r.getVersion()));
 					}
 				}
 				searchrefs.put(oi, newrefs);
@@ -1108,10 +1111,13 @@ public class Workspace {
 				db.getObjectExists(readable, false);
 		for (final ObjectIdentifier oi: searchrefs.keySet()) {
 			for (final Reference r: searchrefs.get(oi)) {
+				if (!idToWS.containsKey(r.getWorkspaceID())) {
+					continue;
+				}
 				final ResolvedWorkspaceID rwsi =
 						idToWS.get(r.getWorkspaceID());
 				final ObjectIDResolvedWS refoi = new ObjectIDResolvedWS(
-						rwsi, r.getId(), r.getVersion());
+						rwsi, r.getObjectID(), r.getVersion());
 				if (exists.containsKey(refoi) && exists.get(refoi)) {
 					//ok, search over
 					ret.put(oi, refoi);

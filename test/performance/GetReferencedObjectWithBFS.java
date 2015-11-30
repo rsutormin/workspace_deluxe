@@ -43,6 +43,8 @@ import com.mongodb.DB;
  */
 public class GetReferencedObjectWithBFS {
 	
+	private static final int LINEAR_TEST_REPS = 3;
+	
 	private static final String MOD_NAME_STR = "TestModule";
 	private static final String LEAF_TYPE_STR = "LeafType";
 	private static final String REF_TYPE_STR = "RefType";
@@ -129,11 +131,20 @@ public class GetReferencedObjectWithBFS {
 				new WorkspaceSaveObject(new HashMap<String, String>(), LEAF_TYPE,
 						null, p, false)), fac).get(0);
 		
-		for (int i = 0; i < 49; i++) {
+		for (int i = 2; i <= 50; i++) {
 			o = saveRefData(u1, priv, o);
 		}
 		o = saveRefData(u1, read, o);
 		
+		for (int i = 50; i > 0; i--) {
+			System.out.print(i + " ");
+			for (int j = 0; j < LINEAR_TEST_REPS; j++) {
+				long start = System.nanoTime();
+				WS.getObjects(u2, Arrays.asList(new ObjectIdentifier(priv, i)), true);
+				System.out.print((System.nanoTime() - start) + " ");
+			}
+			System.out.println();
+		}
 	}
 
 	private static ObjectInformation saveRefData(

@@ -166,11 +166,13 @@ public interface WorkspaceDatabase {
 			NoSuchObjectException, WorkspaceCommunicationException;
 	
 	/** Returns the set of objects that reference each of the given objects.
+	 * Note that permissions are not taken into consideration in this call-
+	 * do not return these results to the user, as they may contain references
+	 * to which they have no access.
 	 * 
 	 */
 	public Map<Reference, Set<Reference>> getReferencesToObject(
-			Set<Reference> objectIDs,
-			PermissionSet perms)
+			Set<Reference> objectIDs)
 			throws WorkspaceCommunicationException;
 
 	public ObjectInformation copyObject(WorkspaceUser user, 

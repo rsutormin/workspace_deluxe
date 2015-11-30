@@ -56,4 +56,32 @@ public class MongoReference implements Reference {
 		return workspaceID + ObjectIdentifier.REFERENCE_SEP + objectID +
 				ObjectIdentifier.REFERENCE_SEP + version;
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (objectID ^ (objectID >>> 32));
+		result = prime * result + version;
+		result = prime * result + (int) (workspaceID ^ (workspaceID >>> 32));
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		MongoReference other = (MongoReference) obj;
+		if (objectID != other.objectID)
+			return false;
+		if (version != other.version)
+			return false;
+		if (workspaceID != other.workspaceID)
+			return false;
+		return true;
+	}
 }
