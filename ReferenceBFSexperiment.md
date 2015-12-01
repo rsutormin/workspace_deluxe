@@ -8,9 +8,10 @@ from another object. Currently the user would have to provide the reference
 chain to the getReferencedObject function to retrieve the object. These changes
 make retrieving referenced objects much more user friendly.
 
-The search is implemented as a BFS to reduce database calls. Calls are
-O(search tree depth) rather than O(nodes in tree). However, this means that
-the amount of data sent per call can theoretically be large.
+The search is implemented as a referent to reference BFS (e.g. the search
+proceeds in the direction **opposite** to the references) to reduce database
+calls. Calls are O(search tree depth) rather than O(nodes in tree). However,
+this means that the amount of data sent per call can theoretically be large.
 
 Setup
 -----
