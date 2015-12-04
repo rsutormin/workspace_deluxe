@@ -16,6 +16,12 @@ Notes:
   other fail. Probably want to do something about this.
 * Probably need a singleton TempDirManager as well + verification that the
   singleton pattern works across both API Servlets.
+* Theoretically any API that behaves similarly to a HttpServlet could work -
+  for instance a (Jersey?) REST API. An API that depends upon an event driven
+  server vs. a thread driven server would *not* work, at least with glassfish
+  as currently configured. Whether the WS code would work in an event driven
+  container is unknown.
+  
   
 Example usage:
 
