@@ -171,6 +171,7 @@ public class GetReferencedObjectWithBFS {
 			Map<String, List<String>> refdata = new HashMap<String, List<String>>();
 			refdata.put("refs", Arrays.asList(ref));
 			for (int i = 0; i < breadth; i++) {
+				//TODO provide name, autonaming can be slow
 				objs.add(new WorkspaceSaveObject(refdata, REF_TYPE, null, p, false));
 			}
 		}
