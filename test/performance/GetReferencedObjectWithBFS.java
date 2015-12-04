@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,7 @@ import us.kbase.typedobj.db.MongoTypeStorage;
 import us.kbase.typedobj.db.TypeDefinitionDB;
 import us.kbase.typedobj.idref.IdReferenceHandlerSetFactory;
 import us.kbase.workspace.database.DefaultReferenceParser;
+import us.kbase.workspace.database.ObjectIDNoWSNoVer;
 import us.kbase.workspace.database.ObjectIdentifier;
 import us.kbase.workspace.database.ObjectInformation;
 import us.kbase.workspace.database.Provenance;
@@ -48,6 +50,10 @@ public class GetReferencedObjectWithBFS {
 	private static final boolean DO_LINEAR = false;
 	private static final boolean DO_BRANCHED = true;
 	
+	private static final String MONGO_EXE = "/kb/runtime/bin/mongod";
+	private static final String TEMP_DIR = "GetRefedObjectWithBFS_temp";
+	private static final boolean USE_WIRED_TIGER = false;
+	
 	private static final String MOD_NAME_STR = "TestModule";
 	private static final String LEAF_TYPE_STR = "LeafType";
 	private static final String REF_TYPE_STR = "RefType";
@@ -68,9 +74,9 @@ public class GetReferencedObjectWithBFS {
 		rootLogger.setLevel(Level.OFF);
 		
 		MongoController mongo = new MongoController(
-				WorkspaceTestCommon.getMongoExe(),
-				Paths.get(WorkspaceTestCommon.getTempDir()),
-				WorkspaceTestCommon.useWiredTigerEngine());
+				MONGO_EXE,
+				Paths.get(TEMP_DIR),
+				USE_WIRED_TIGER);
 		System.out.println("Using Mongo temp dir " + mongo.getTempDir());
 		System.out.println("Mongo port: " + mongo.getServerPort());
 		WSDB = GetMongoDB.getDB("localhost:" + mongo.getServerPort(),
@@ -79,7 +85,7 @@ public class GetReferencedObjectWithBFS {
 				"GetReferencedObjectBFSTest_types");
 		
 		TempFilesManager tfm = new TempFilesManager(
-				new File(WorkspaceTestCommon.getTempDir()));
+				new File(TEMP_DIR));
 		tfm.cleanup();
 		
 		TypedObjectValidator val = new TypedObjectValidator(
@@ -171,8 +177,8 @@ public class GetReferencedObjectWithBFS {
 			Map<String, List<String>> refdata = new HashMap<String, List<String>>();
 			refdata.put("refs", Arrays.asList(ref));
 			for (int i = 0; i < breadth; i++) {
-				//TODO provide name, autonaming can be slow
-				objs.add(new WorkspaceSaveObject(refdata, REF_TYPE, null, p, false));
+				objs.add(new WorkspaceSaveObject(new ObjectIDNoWSNoVer(
+						UUID.randomUUID().toString()), refdata, REF_TYPE, null, p, false));
 			}
 		}
 		return WS.saveObjects(user, wsi, objs, fac);
