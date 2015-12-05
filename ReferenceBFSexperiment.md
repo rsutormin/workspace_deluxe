@@ -48,7 +48,10 @@ Note that at a breadth of 4, the search must traverse 5461 nodes, and yet is
 faster than a search with breadth 1 and depth 50 which only traverses 50 nodes.
 A possible explanation is that at lower node counts transport from the
 workspace service to mongoDB dominates, while at higher node counts mongoDB
-document reads dominate.
+document reads dominate. This seems to be the case, as the call completion
+time scales linearly with the tree size with trees > 5000 nodes.
+
+![Branched search tree completion time per object](branchedtimeperobject.png)
 
 TODO update graph
 
@@ -98,5 +101,7 @@ TODOs for production
       the backend.
 * Make the option available in the type compiled API.
 * Lots and lots of tests.
-* TODO cache? maybe not necessary, even breadth 6 (56k nodes) seems a really
-  unlikely case, and that still < 100ms
+* Possibly a cache, but this seems unnecessary as a 50k node tree search
+  returns in < 100ms. A short term (< 10s) cache of unaccessible objects might
+  be advisable to guard against repeated requests. Placing a reasonable limit
+  on the search tree size seems to be an acceptable solution.
