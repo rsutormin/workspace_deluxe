@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.UUID;
 
 import org.slf4j.LoggerFactory;
@@ -105,6 +106,10 @@ public class GetReferencedObjectWithBFS {
 		if (DO_BRANCHED) {
 			runBranchedReferencesTest();
 		}
+		System.out.println("Press a key to clean up test resources");
+		Scanner s = new Scanner(System.in);
+		s.nextLine();
+		s.close();
 		tfm.cleanup();
 		mongo.destroy(true);
 	}
@@ -169,7 +174,7 @@ public class GetReferencedObjectWithBFS {
 			List<ObjectInformation> increfs,
 			int breadth) 
 			throws Exception {
-		IdReferenceHandlerSetFactory fac = new IdReferenceHandlerSetFactory(10000000);
+		IdReferenceHandlerSetFactory fac = new IdReferenceHandlerSetFactory(100000);
 		Provenance p = new Provenance(user);
 		List<WorkspaceSaveObject> objs = new LinkedList<WorkspaceSaveObject>();
 		for (ObjectInformation oi: increfs) {
@@ -181,7 +186,17 @@ public class GetReferencedObjectWithBFS {
 						UUID.randomUUID().toString()), refdata, REF_TYPE, null, p, false));
 			}
 		}
-		return WS.saveObjects(user, wsi, objs, fac);
+		final List<ObjectInformation> ret = new LinkedList<ObjectInformation>();
+		final int batch = 100000;
+		int i;
+		for(i = batch; i < objs.size(); i += batch) {
+			ret.addAll(WS.saveObjects(user, wsi, objs.subList(i-batch, i), fac));
+		}
+		if ((i - batch) < objs.size()) {
+			ret.addAll(WS.saveObjects(user, wsi,
+					objs.subList(i-batch, objs.size()), fac));
+		}
+		return ret;
 	}
 
 	private static void runLinearReferencesTest() throws Exception {
