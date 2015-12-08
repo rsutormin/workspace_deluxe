@@ -53,8 +53,6 @@ time scales linearly with the tree size with trees > 5000 nodes.
 
 ![Branched search tree completion time per object](branchedtimeperobject.png)
 
-TODO update graph
-
 Discussion
 ----------
 
@@ -104,4 +102,4 @@ TODOs for production
 * Possibly a cache, but this seems unnecessary as a 50k node tree search
   returns in < 100ms. A short term (< 10s) cache of unaccessible objects might
   be advisable to guard against repeated requests. Placing a reasonable limit
-  on the search tree size seems to be an acceptable solution.
+  (50K?) on the search tree size seems to be an acceptable solution.
